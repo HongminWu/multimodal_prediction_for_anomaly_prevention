@@ -190,7 +190,7 @@ class ProMP(object):
         return np.dot(self.Phi.T, sampW)
 
     def plot_prior(self, legend='', b_distribution=True, color='b', alpha_std=0.4, linewidth_mean=2,
-                   b_regression=True, b_dataset=True, linewidth_data=1):
+                   b_regression=True, b_dataset=True, linewidth_data=1, c=1):
         """
         plot the prior distribution from training sets
         :param legend: the figure legend
@@ -208,7 +208,7 @@ class ProMP(object):
         if b_distribution:
             mean = np.dot(self.Phi.T, self.meanW)
             std = 2 * np.sqrt(np.diag(np.dot(self.Phi.T, np.dot(self.sigmaW, self.Phi))))
-            plt.fill_between(x, mean-std, mean+std, color=color, alpha=alpha_std)
+            plt.fill_between(x, mean- c*std, mean + c*std, color=color, alpha=alpha_std)
             plt.plot(x, mean, color=color, label=legend, linewidth=linewidth_mean)
         # the regression result
         if b_regression:
