@@ -89,13 +89,13 @@ def model_errors_with_prob_by_features(group_errors_by_csv = None, group_stamps_
     return ipromp
 
     
-def status(e = None, mean =  None, std = None, c = None):
+def isAnomaly(e = None, mean =  None, std = None, c = None):
     upperThreshold = mean + c * std
     lowerThreshold = mean - c * std
     if e > upperThreshold or e < lowerThreshold :
-        return "anomalies"
+        return True
     else:
-        return "norminal"
+        return False
 
 
 def testing(csv, n_lags, prediction_model, promp_models, anomaly_t_by_human = None, c = None, succ = None):
@@ -135,6 +135,7 @@ def testing(csv, n_lags, prediction_model, promp_models, anomaly_t_by_human = No
     ipromp_model.set_alpha(estimated_alpha)
     print('Adding testing points in each promp model...')
 
+    flag_of_anomalies = []
     for feature, promp in enumerate(ipromp_model.promps):
         plt.axes(axarr[feature])
         axarr[feature].set_title('probabilistic model of feature #%s'%feature)        
@@ -153,25 +154,31 @@ def testing(csv, n_lags, prediction_model, promp_models, anomaly_t_by_human = No
                 ipdb.set_trace()
             ix = np.where(means == mean)[0][0]
             std = stds[ix]
-            stat = status(e = e[idx, feature], mean = mean, std = std, c = c)
-            if  stat == "anomalies":
-                print "triggered @ %s"%stamp[idx]
-            elif stat == "norminal":
-                pass
+            
+            flag_of_anomalies.append(Anomaly = isAnomaly(e = e[idx, feature], mean = mean, std = std, c = c))
                 
         promp.plot_uViapoints()
+        
+    return flag_of_anomalies
 
 def split_testing(succ_csvs, unsucc_csvs, n_lags, prediction_model, ipromp_model):
 
     c = 6.0
+    TP, TN, FP, FN = 0, 0, 0, 0
     
-    for csv in succ_csvs:
+    for csv in succ_csvs: # Negative
         print
         print "Ganna to test the successful trials one by one"
         print
-        testing(csv, n_lags, prediction_model, ipromp_model, anomaly_t_by_human = None, c = c, succ=True)
+        flag_of_anomalies = testing(csv, n_lags, prediction_model, ipromp_model, anomaly_t_by_human = None, c = c, succ=True)
         
-    for csv in unsucc_csvs:
+        if sum(flag_of_anomalies): # not equal to zero, have anomalies
+            FP += 1
+        else:
+            TN += 1
+        
+        
+    for csv in unsucc_csvs: # Positive
         print
         print "Ganna to test the unsuccessful trials one by one"
         print
@@ -182,10 +189,19 @@ def split_testing(succ_csvs, unsucc_csvs, n_lags, prediction_model, ipromp_model
         anomaly_type = anomaly_label_and_signal_time[0]
         anomaly_t_by_human = anomaly_label_and_signal_time[1].to_sec()
        
-        testing(csv, n_lags, prediction_model, ipromp_model, anomaly_t_by_human = anomaly_t_by_human, c = c, succ=False)
- 
-    plt.show()
-            
+        flag_of_anomalies = testing(csv, n_lags, prediction_model, ipromp_model, anomaly_t_by_human = anomaly_t_by_human, c = c, succ=False)
+
+        if sum(flag_of_anomalies): # not equal to zero, have anomalies
+            TP += 1
+        else:
+            FN += 1
+
+    precision = TP/(TP+FP) 
+    recall    = TP/(TP+FN) 
+    f_score   = 2*TP/(2*TP+FP+FN)
+    accuracy  = (TP+TN)/(TP+TN+FP+FN) 
+    print("Accuracy : {:0.4f}, Precision : {:0.4f}, Recall : {:0.4f}, F-score : {:0.4f}".format(accuracy, precision, recall, f_score))
+    
 if __name__=="__main__":
     data_path =  "/home/birl_wu/baxter_ws/src/SPAI/smach_based_introspection_framework/temp_folder_prediction_for_error_prevention_wrench_norm/anomaly_detection_feature_selection_folder/No.0 filtering scheme"
     skill = 4
