@@ -1,0 +1,13 @@
+norm_force and norm_torque
+model: lstm_dropout
+Accuracy : 0.7000, Precision : 0.5000, Recall : 1.0000, F-score : 0.6667
+TP : 3.0, TN : 4.0, FP : 3.0, FN : 0.0
+
+
+norm_force and norm_torque
+model: lstm
+Accuracy : 0.7000, Precision : 0.5000, Recall : 1.0000, F-score : 0.6667
+TP : 3.0, TN : 4.0, FP : 3.0, FN : 0.0
+
+
+

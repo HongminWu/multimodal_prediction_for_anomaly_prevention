@@ -1,0 +1,24 @@
+skill 4
+------------------------------------------------------------------------
+norm_force and norm_torque
+model: lstm_dropout
+Accuracy : 0.7000, Precision : 0.5000, Recall : 1.0000, F-score : 0.6667
+TP : 3.0, TN : 4.0, FP : 3.0, FN : 0.0
+
+norm_force and norm_torque
+model: lstm
+Accuracy : 0.7000, Precision : 0.5000, Recall : 1.0000, F-score : 0.6667
+TP : 3.0, TN : 4.0, FP : 3.0, FN : 0.0
+
+norm_force and norm_torque
+model: lstm
+Accuracy : 0.9898, Precision : 0.9583, Recall : 1.0000, F-score : 0.9787
+TP : 23.0, TN : 74.0, FP : 1.0, FN : 0.0
+
+norm_force and norm_torque
+model: lstm_dropout
+Accuracy : 1.0000, Precision : 1.0000, Recall : 1.0000, F-score : 1.0000
+TP : 23.0, TN : 75.0, FP : 0.0, FN : 0.0
+
+
+

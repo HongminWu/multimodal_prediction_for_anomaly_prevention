@@ -220,7 +220,11 @@ class ProMP(object):
             for y in self.Y:
                 plt.plot(x, y, color='gray', label=legend, linewidth=linewidth_data, alpha=0.5)
 
-        return mean, std # added by HongminWu
+    def get_means_and_stds(self): # added by HongminWu
+        mean = np.dot(self.Phi.T, self.meanW)
+        std = 2 * np.sqrt(np.diag(np.dot(self.Phi.T, np.dot(self.sigmaW, self.Phi))))
+        
+        return mean, std
 
     def plot_uUpdated(self, legend='', color='g'):
         """
@@ -263,91 +267,6 @@ class ProMP(object):
             for viapoint_id, viapoint in enumerate(self.viapoints):
                 plt.plot(viapoint['t'], viapoint['obsy'], marker="o", markersize=10, color=color)
                 plt.errorbar(viapoint['t'], viapoint['obsy'], yerr=self.sigmay, fmt="o")
-
-# added by HongminWu Oct.20-2018 
-#--BEGIN--------------------------------------------------------------------------------------------------------------------
-    def add_alpha(self, alpha):
-        """
-        Add a phase to the trajectory
-        :param alpha:
-        :return:
-        """
-        self.alpha.append(alpha)
-        self.mean_alpha = np.mean(self.alpha)
-        self.std_alpha = np.std(self.alpha)
-
-    def set_alpha(self, alpha):
-        """
-        set the alpha for this model
-        :param alpha:
-        :return:
-        """
-        self.alpha_fit = alpha
-            
-    def alpha_candidate(self, num_alpha_candidate=None):
-        """
-        compute the alpha candidate by unit sampling
-        :param num: the num of alpha candidate
-        :return: the list of alpha candidate
-        """
-        if num_alpha_candidate is None:
-            num_alpha_candidate = self.num_alpha_candidate
-        self.num_alpha_candidate = num_alpha_candidate
-        alpha_candidate = np.random.normal(self.mean_alpha, self.std_alpha, num_alpha_candidate)
-        candidate_pdf = stats.norm.pdf(alpha_candidate, self.mean_alpha, self.std_alpha)
-        alpha_gen = []
-        for idx_candidate in range(self.num_alpha_candidate):
-            alpha_gen.append({'candidate': alpha_candidate[idx_candidate], 'prob': candidate_pdf[idx_candidate]})
-        return alpha_gen
-
-    def estimate_alpha(self, alpha_candidates, obs, times):
-        """
-        compute the MAP
-        :param alpha_candidates: the alpha candidate
-        :param obs: the observations
-        :param times: the timestamp
-        :return: MAP for alpha
-        """
-        pp_list = []
-        for alpha_candidate in alpha_candidates:
-            lh = self.log_ll_alpha(alpha_candidate['candidate'], obs, times)
-            pp = math.log(alpha_candidate['prob']) + lh
-            pp_list.append(pp)
-        id_max = np.argmax(pp_list)
-        return id_max
-    
-    def log_ll_alpha(self, alpha_candidate, obs, time):
-        """
-        compute the alpha candidate log likelihood
-        :param alpha_candidate: the alpha candidate
-        :param obs: the observations
-        :param time: the timestamp
-        :return: the alpha candidate log likelihood
-        """
-        prob_full = 0.0
-        for obs_idx in range(len(time)):
-            h_full = self.obs_mat(time[obs_idx]/alpha_candidate)
-            mean_t = np.dot(h_full, self.meanW) #meanW_full = meanW, modified by HMW
-            std_t = np.dot(np.dot(h_full, self.sigmaW), h_full.T) + self.sigmay # covW_full = sigmaW
-            prob = stats.norm.pdf(obs[obs_idx], mean_t, std_t)
-            log_prob = math.log(prob) if prob != 0.0 else -np.inf
-            prob_full = prob_full + log_prob
-        return prob_full
-    
-    def obs_mat(self, t):
-        """
-        Get the obs mat with missing observations
-        :param t: the specific time
-        :return: the observation mat
-        """
-        h = np.exp(-.5 * (np.array(map(lambda x: x - self.C,
-                                       np.tile(t, (self.num_basis, 1)).T)).T**2 / (self.sigma_basis**2)))
-        h_full = np.array([]).reshape(0,0)
-        # HMW: construct the obs mat
-        h_full = scipy.linalg.block_diag(h_full, h.T)
-        return h_full
-#--END--------------------------------------------------------------------------------------------------------------------    
-                
 
 class NDProMP(object):
     """
