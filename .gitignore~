@@ -1,0 +1,5 @@
+*.jpg
+*.png
+*.npy
+model/
+figures/

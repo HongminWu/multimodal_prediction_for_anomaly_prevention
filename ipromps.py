@@ -203,22 +203,27 @@ class ProMP(object):
         :param linewidth_data:
         :return:
         """
+        labels = {"conf":"Confidence Interval: c=%s"%c,
+                  "mean":"Mean",                      
+                  "reg":"Regression",
+                  "raw":"Raw data",
+                  }
         x = self.x
         # the probability distribution
         if b_distribution:
             mean = np.dot(self.Phi.T, self.meanW)
             std = 2 * np.sqrt(np.diag(np.dot(self.Phi.T, np.dot(self.sigmaW, self.Phi))))
-            plt.fill_between(x, mean- c*std, mean + c*std, color=color, alpha=alpha_std)
-            plt.plot(x, mean, color=color, label=legend, linewidth=linewidth_mean)
+            plt.fill_between(x, mean- c*std, mean + c*std, color=color, alpha=alpha_std, label=labels["conf"])
+            plt.plot(x, mean, color=color, label=labels["mean"], linewidth=linewidth_mean)
         # the regression result
         if b_regression:
             for w in self.W:
                 reg = np.dot(self.Phi.T, w)
-                plt.plot(x, reg, color='black', label=legend, linewidth=linewidth_data, alpha=0.5)
+                plt.plot(x, reg, color='black', label=labels["reg"], linewidth=linewidth_data, alpha=0.5)
         # the dataset to train to model
         if b_dataset:
             for y in self.Y:
-                plt.plot(x, y, color='gray', label=legend, linewidth=linewidth_data, alpha=0.5)
+                plt.plot(x, y, color='gray', label=labels["raw"], linewidth=linewidth_data, alpha=0.5)
 
     def get_means_and_stds(self): # added by HongminWu
         mean = np.dot(self.Phi.T, self.meanW)

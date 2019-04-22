@@ -14,7 +14,7 @@ from keras.layers import LSTM
 import numpy as np
 import pandas as pd
 import cPickle as pickle
-import ipdb, os, glob
+import ipdb, os, glob, sys
 from collections import OrderedDict
 from sklearn import preprocessing
 from anomaly_detection_with_prediction import (detect_anomalies_with_prediction_actuals,
@@ -157,6 +157,9 @@ def testing(csv, n_lags, prediction_model, promp_models, anomaly_t_by_human = No
             axarr[feature].axvline(anomaly_time / estimated_alpha, c='black', ls = '--')
         promp.plot_prior(b_regression=True, linewidth_mean=3, b_dataset=True, c = c)
         promp.plot_uViapoints()
+        handles, labels = plt.gca().get_legend_handles_labels()
+        by_label = OrderedDict(zip(labels, handles))
+        plt.legend(by_label.values(), by_label.keys())
 
     fig.savefig("./figures/%s.png"%title, format = "png", dpi=300)    
         
@@ -201,7 +204,7 @@ def testing_results(succ_csvs, unsucc_csvs, n_lags, prediction_model, ipromp_mod
     
 if __name__=="__main__":
     data_path =  "/home/birl_wu/baxter_ws/src/SPAI/smach_based_introspection_framework/temp_folder_prediction_for_error_prevention_wrench_norm/anomaly_detection_feature_selection_folder/No.0 filtering scheme"
-    skill = 3
+    skill = 4
     
     # load successful dataset for training and validating
     succ_csvs = glob.glob(os.path.join(
@@ -312,6 +315,15 @@ if __name__=="__main__":
     fig.savefig("./figures/errors.png", format = "png", dpi=300)            
     print group_errors_by_csv.keys()
 
+    np.save('group_errors_by_csv.npy',group_errors_by_csv)
+    np.save('group_stamps_by_csv.npy', group_stamps_by_csv)    
+    c = 3.0
+    import plot_errors_for_illustrating_in_diff_and_same_lengths
+    plot_errors_for_illustrating_in_diff_and_same_lengths.run(group_errors_by_csv = group_errors_by_csv,
+                                                          group_stamps_by_csv = group_stamps_by_csv,
+                                                          c = c)
+    sys.exit()
+    
     # build probabilistic model for all features
     ipromp_model = model_errors_with_prob_by_features(group_errors_by_csv = group_errors_by_csv,
                                                                      group_stamps_by_csv = group_stamps_by_csv,
