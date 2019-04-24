@@ -22,7 +22,7 @@ def run(group_errors_by_csv = None,
     for i, csv in enumerate(csvs):
         error = group_errors_by_csv[csv][:,0]
         if error.shape[-1] < 90: continue
-        _filtered = gaussian_filter1d(error, sigma=0.5)
+        _filtered = gaussian_filter1d(error, sigma=0.5) # the larger sigma, the smoother
         # series = pd.Series(data=error)
         # _filtered = series.rolling(window=window).mean()[window:].values
         ax.plot(_filtered, label='Error sequence')
