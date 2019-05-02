@@ -1,5 +1,9 @@
 *.jpg
 *.png
 *.npy
-models/
-figures/
+*.eps
+*.py~
+models*
+figures*
+zzzz*
+anomaly_detection_feature_selection_folder*

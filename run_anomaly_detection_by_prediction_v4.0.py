@@ -1,6 +1,6 @@
 # achieve the anomaly detection by combining the LSTM and ProMPs,
 # where the LSTM for prdicting the time series and the NDProMPs for modeling the predicting errors for all dimentions(features), syn.
-
+# the threshold is considered by combining all features
 from math import sqrt
 from numpy import concatenate
 import matplotlib.pyplot as plt
@@ -14,7 +14,7 @@ from keras.layers import LSTM
 import numpy as np
 import pandas as pd
 import cPickle as pickle
-import ipdb, os, glob
+import ipdb, os, glob, sys
 from collections import OrderedDict
 from sklearn import preprocessing
 from anomaly_detection_with_prediction import (detect_anomalies_with_prediction_actuals,
@@ -23,6 +23,8 @@ from rnn_models import (get_model_via_name, series_to_supervised)
 import ipromps 
 from scipy.interpolate import griddata
 import random
+
+GENERATE_FIGURE_IN_PAPER = False
 
 def convert_to_X_y(dataset = None, n_lags=None):
     values = dataset.values
@@ -85,17 +87,17 @@ def model_errors_with_prob_by_features(group_errors_by_csv = None, group_stamps_
         data = group_errors_by_csv_aligned[csv]
         ipromp.add_demonstration(data)
         ipromp.add_alpha(durations[i])
-            
+
     return ipromp
 
-
-def status(e = None, mean =  None, std = None, c = None):
+    
+def isAnomaly(e = None, mean =  None, std = None, c = None):
     upperThreshold = mean + c * std
     lowerThreshold = mean - c * std
     if e > upperThreshold or e < lowerThreshold :
-        return "anomalies"
+        return True
     else:
-        return "norminal"
+        return False
 
 
 def testing(csv, n_lags, prediction_model, promp_models, anomaly_t_by_human = None, c = None, succ = None):
@@ -110,7 +112,6 @@ def testing(csv, n_lags, prediction_model, promp_models, anomaly_t_by_human = No
     # invert scaling for actual
     inv_y = scaler.inverse_transform(y)
 
-
     stamp = (dataset.index - dataset.index[0])[:-n_lags]
 
     if anomaly_t_by_human is not None:
@@ -118,13 +119,13 @@ def testing(csv, n_lags, prediction_model, promp_models, anomaly_t_by_human = No
     
     e = inv_y - inv_yhat
 
-    print e.shape
+    print (e.shape)
 
-    fig, axarr = plt.subplots(nrows=n_features, ncols=1, sharex=True)
+    fig, ax = plt.subplots(nrows=1, ncols=1, sharex=True)
     plt.subplots_adjust(hspace=0.5)
     dtype = "succ" if succ else "unsucc"
-    plt.suptitle("%s: %s"%(dtype, os.path.basename(csv)))
-
+    title = "log-Prob of %s: %s"%(dtype, os.path.basename(csv)[-20:])
+    plt.suptitle(title)
     
     # testing the new trail
     num_alpha_candidate = 6
@@ -135,41 +136,36 @@ def testing(csv, n_lags, prediction_model, promp_models, anomaly_t_by_human = No
     ipromp_model.set_alpha(estimated_alpha)
     print('Adding testing points in each promp model...')
 
-
+    flag_of_anomalies = []
+    list_of_prob = []
+    list_of_t = []
+    print e
     for idx in range(len(stamp)):
+        ipromp_model.clear_viapoints()
         t = stamp[idx] / estimated_alpha
-        if t > 1.0: t = 0.998
-        ipromp_model.add_viapoint(t, e[idx])
+        # if t > 1.0: t = 0.998
+        ipromp_model.add_viapoint(t, e[idx,:])
         try:
-            means_t = ipromp_model.get_means(t)
+            prob = ipromp_model.prob_obs()
         except Exception as exp:
-            ipdb.set_trace()
+                ipdb.set_trace()
+        status =  True if succ else False
+        flag_of_anomalies.append(status)
+        list_of_t.append(t)
+        list_of_prob.append(prob)
+    print list_of_prob    
+    ax.plot(list_of_prob)
+    # if anomaly_t_by_human is not None:
+    #     ax.axvline(anomaly_time / estimated_alpha, c='black', ls = '--')
+    fig.savefig("./figures/%s.png"%title, format = "png", dpi=300)    
+    return flag_of_anomalies
 
-        for feature, promp in enumerate(ipromp_model.promps):
-            plt.axes(axarr[feature])
-            axarr[feature].set_title('probabilistic model of feature #%s'%feature)        
-            if anomaly_t_by_human is not None:
-                axarr[feature].axvline(anomaly_time / estimated_alpha, c='black', ls = '--')
-            means, stds = promp.plot_prior(b_regression=False, linewidth_mean=3, b_dataset=True, c = c)
-            ix = np.where(means == means_t[feature])[0][0]
-            std = stds[ix]
-            if status(e = e[idx, feature], mean = means_t[feature], std = std, c = c) == "anomalies":
-                print "triggered @ %s"%stamp[idx]
-    
-def split_testing(succ_csvs, unsucc_csvs, n_lags, prediction_model, ipromp_model):
+def testing_results(succ_csvs, unsucc_csvs, n_lags, prediction_model, ipromp_model, c=None):
 
-    c = 5.0
+    TP, TN, FP, FN = 0.0, 0.0, 0.0, 0.0
     
-    for csv in succ_csvs:
-        print
-        print "Ganna to test the successful trials one by one"
-        print
-        testing(csv, n_lags, prediction_model, ipromp_model, anomaly_t_by_human = None, c = c, succ=True)
-        
-    for csv in unsucc_csvs:
-        print
-        print "Ganna to test the unsuccessful trials one by one"
-        print
+    print "Ganna to test the unsuccessful trials one by one"
+    for csv in unsucc_csvs: # Positive
         anomaly_label_and_signal_time = pickle.load(open(os.path.join(
             os.path.dirname(csv),
             'anomaly_label_and_signal_time.pkl'
@@ -177,13 +173,33 @@ def split_testing(succ_csvs, unsucc_csvs, n_lags, prediction_model, ipromp_model
         anomaly_type = anomaly_label_and_signal_time[0]
         anomaly_t_by_human = anomaly_label_and_signal_time[1].to_sec()
        
-        testing(csv, n_lags, prediction_model, ipromp_model, anomaly_t_by_human = anomaly_t_by_human, c = c, succ=False)
- 
-    plt.show()
-            
+        flag_of_anomalies = testing(csv, n_lags, prediction_model, ipromp_model, anomaly_t_by_human = anomaly_t_by_human, c = c, succ=False)
+
+        if sum(flag_of_anomalies): # not equal to zero, have anomalies
+            TP += 1
+        else:
+            FN += 1
+
+    print "Ganna to test the successful trials one by one"
+    for csv in succ_csvs: # Negative
+        flag_of_anomalies = testing(csv, n_lags, prediction_model, ipromp_model, anomaly_t_by_human = None, c = c, succ=True)
+        if sum(flag_of_anomalies): # not equal to zero, have anomalies
+            FP += 1
+        else:
+            TN += 1
+        
+    precision = TP/(TP+FP) 
+    recall    = TP/(TP+FN)
+    f_score   = 2*TP/(2*TP+FP+FN)
+    accuracy  = (TP+TN)/(TP+TN+FP+FN)
+    tpr = recall
+    fpr = FP / (FP + TN) 
+    print("Accuracy : {:0.4f}, Precision : {:0.4f}, Recall : {:0.4f}, F-score : {:0.4f}".format(accuracy, precision, recall, f_score))
+    print("TP : {:0.1f}, TN : {:0.1f}, FP : {:0.1f}, FN : {:0.1f}".format( TP, TN, FP, FN))    
+    
 if __name__=="__main__":
     data_path =  "/home/birl_wu/baxter_ws/src/SPAI/smach_based_introspection_framework/temp_folder_prediction_for_error_prevention_wrench_norm/anomaly_detection_feature_selection_folder/No.0 filtering scheme"
-    skill = 3
+    skill = 4
     
     # load successful dataset for training and validating
     succ_csvs = glob.glob(os.path.join(
@@ -231,14 +247,14 @@ if __name__=="__main__":
             valid_y = np.vstack((valid_y, y))            
 
     input_shape = (train_X.shape[1], train_X.shape[2])
-    model_name = "lstm" #"lstm_dropout" "lstm" 
+    model_name = "lstm_dropout" #"lstm_dropout" "lstm" 
     model = get_model_via_name(model_name= model_name,
                                input_shape = input_shape,
                                output_shape = n_features)
 
     # fit network
-    _weights = "models/%s_model.h5"%model_name
-    _history = "models/%s_history.pickle"%model_name    
+    _weights = "models/%s_model_skill_%s.h5"%(model_name, skill)
+    _history = "models/%s_history_skill_%s.pickle"%(model_name, skill)
     if not os.path.isfile(_weights):
         history = model.fit(train_X,
                             train_y,
@@ -261,8 +277,8 @@ if __name__=="__main__":
         with open(_history, "rb") as f:
             history = pickle.load(f)
     
-    fig, axarr = plt.subplots(nrows=n_features, ncols=1, sharex=False)
-    plt.subplots_adjust(hspace=0.5)
+    # fig, axarr = plt.subplots(nrows=n_features, ncols=1, sharex=False)
+    # plt.subplots_adjust(hspace=0.5)
     group_errors_by_csv = OrderedDict()
     group_stamps_by_csv = OrderedDict() 
     for i, csv in enumerate(valid_succ_csvs):
@@ -276,32 +292,43 @@ if __name__=="__main__":
         # invert scaling for actual
         inv_y = scaler.inverse_transform(valid_y)
 
-        for feature in range(n_features):
-            _yhat = inv_yhat[:,feature]
-            _y = inv_y[:,feature]
-            # calculate RMSE
-            rmse = sqrt(mean_squared_error(_y,_yhat))
-            print('Test RMSE: %.3f of feature_%s' % (rmse, feature))
+        # for feature in range(n_features):
+        #     _yhat = inv_yhat[:,feature]
+        #     _y = inv_y[:,feature]
+        #     # calculate RMSE
+        #     rmse = sqrt(mean_squared_error(_y,_yhat))
+        #     print('Test RMSE: %.3f of feature_%s' % (rmse, feature))
 
-            # plot the error by actual - predict
-            e = _y - _yhat
-            axarr[feature].plot(e, label='errors' if i==0 else "")            
-            axarr[feature].legend()
-            axarr[feature].set_title('error sequences of feature #%s'%feature)
+        #     # plot the error by actual - predict
+        #     e = _y - _yhat
+        #     axarr[feature].plot(e, label='errors' if i==0 else "")            
+        #     axarr[feature].legend()
+        #     axarr[feature].set_title('error sequences of feature #%s'%feature)
+        
         fileID = "csv-%s"%i
         group_errors_by_csv[fileID] = inv_y - inv_yhat
         group_stamps_by_csv[fileID] = valid_dataset.index - valid_dataset.index[0]
+    #fig.savefig("./figures/errors.png", format = "png", dpi=300)            
     print group_errors_by_csv.keys()
 
+    c = 3.0
+    if GENERATE_FIGURE_IN_PAPER:
+        np.save('group_errors_by_csv.npy',group_errors_by_csv)
+        np.save('group_stamps_by_csv.npy', group_stamps_by_csv)    
+        import plot_errors_for_illustrating_in_diff_and_same_lengths
+        plot_errors_for_illustrating_in_diff_and_same_lengths.run(group_errors_by_csv = group_errors_by_csv,
+                                                              group_stamps_by_csv = group_stamps_by_csv,
+                                                              c = c)
+        sys.exit()
+    
     # build probabilistic model for all features
     ipromp_model = model_errors_with_prob_by_features(group_errors_by_csv = group_errors_by_csv,
                                                                      group_stamps_by_csv = group_stamps_by_csv,
                                                                      )
     
-    split_testing(succ_csvs = valid_succ_csvs,
+    testing_results(succ_csvs = valid_succ_csvs,
                     unsucc_csvs = unsucc_csvs,
                     n_lags = n_lags,
                     prediction_model = model,
                     ipromp_model = ipromp_model,
-                        )
-    plt.show()
+                    c = c)
