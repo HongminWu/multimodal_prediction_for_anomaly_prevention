@@ -86,7 +86,6 @@ def run(group_errors_by_csv = None,
     plt.ylabel("Error")
     plt.xlim(0,1)
     fig.savefig('./figures/error_sequences_model.png', format="png", papertype='a4')
-    plt.show()    
 
 if __name__=="__main__":
     group_errors_by_csv = np.load('group_errors_by_csv.npy').item()
