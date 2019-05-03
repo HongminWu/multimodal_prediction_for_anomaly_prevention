@@ -23,8 +23,13 @@ from rnn_models import (get_model_via_name, series_to_supervised)
 import ipromps 
 from scipy.interpolate import griddata
 import random
+plt.rcParams.update({'font.size': 12})
+plt.rcParams["font.family"] = "Time New Roman"
 
 GENERATE_FIGURE_IN_PAPER = False
+dpi = 100
+figure_size = (12,8)
+_labels = [r'$n_f$', r'$n_m$', r'$n_l$', r'$n_a$', r'$s_l$', r'$s_r$',]    
 
 def convert_to_X_y(dataset = None, n_lags=None):
     values = dataset.values
@@ -120,7 +125,6 @@ def testing(csv, n_lags, prediction_model, promp_models, anomaly_t_by_human = No
     e = inv_y - inv_yhat
 
     print (e.shape)
-
     
     # testing the new trail
     num_alpha_candidate = 6
@@ -132,8 +136,9 @@ def testing(csv, n_lags, prediction_model, promp_models, anomaly_t_by_human = No
     # print('Adding testing points in each promp model...')
 
     if GENERATE_FIGURE_IN_PAPER:
-        fig, axarr = plt.subplots(nrows=n_features, ncols=1, sharex=True)
+        fig, axarr = plt.subplots(nrows=n_features, ncols=1, sharex=True, figsize=figure_size, tight_layout=True)
         plt.subplots_adjust(hspace=0.5)
+        plt.xlabel('Temporal scalar')
         dtype = "succ" if succ else "unsucc"
         title = "%s: %s, c=%s"%(dtype, os.path.basename(csv)[-25:], c)
         plt.suptitle(title)
@@ -141,8 +146,8 @@ def testing(csv, n_lags, prediction_model, promp_models, anomaly_t_by_human = No
     flag_of_anomalies = []
     for feature, promp in enumerate(ipromp_model.promps):
         means, stds = promp.get_means_and_stds()    
+        promp.clear_viapoints()
         for idx in range(len(stamp)):
-            promp.clear_viapoints()
             t = stamp[idx] / estimated_alpha
             if t > 1.0: t = 0.998
             promp.add_viapoint(t, e[idx, feature])
@@ -157,17 +162,20 @@ def testing(csv, n_lags, prediction_model, promp_models, anomaly_t_by_human = No
 
         if GENERATE_FIGURE_IN_PAPER:
             plt.axes(axarr[feature])
-            axarr[feature].set_title('probabilistic model of feature #%s'%feature)        
-            if anomaly_t_by_human is not None:
-                axarr[feature].axvline(anomaly_time / estimated_alpha, c='black', ls = '--')
-            promp.plot_prior(b_regression=True, linewidth_mean=3, b_dataset=True, c = c)
+            axarr[feature].set_title('probabilistic model of %s'%_labels[feature])
+            axarr[feature].set_xlim(0,1) 
+            axarr[feature].set_ylabel('Error')           
+            # if anomaly_t_by_human is not None:
+            #     axarr[feature].axvline(anomaly_time / estimated_alpha, c='black', ls = '--')
+            promp.plot_prior(b_regression=False, linewidth_mean=2, b_dataset=True, c = c)
             promp.plot_uViapoints()
-            handles, labels = plt.gca().get_legend_handles_labels()
-            by_label = OrderedDict(zip(labels, handles))
-            plt.legend(by_label.values(), by_label.keys())
+            # handles, labels = plt.gca().get_legend_handles_labels()
+            # by_label = OrderedDict(zip(labels, handles))
+            # plt.legend(by_label.values(), by_label.keys())
 
     if GENERATE_FIGURE_IN_PAPER:
-        fig.savefig("./figures/%s.png"%title, format = "png", dpi=300)    
+        fig.align_labels()
+        fig.savefig("./figures/%s.png"%title, format = "png", dpi=dpi)    
         
     return flag_of_anomalies, stamp[-1], estimated_alpha
 
@@ -175,21 +183,11 @@ def testing_results(succ_csvs, unsucc_csvs, n_lags, prediction_model, ipromp_mod
 
     list_of_stamps = []
     list_of_estimated_alpha = []    
+    list_of_csv_type = []
     
     TP, TN, FP, FN = 0.0, 0.0, 0.0, 0.0
     
-    print "Ganna to test the successful trials one by one"
-    for csv in succ_csvs: # Negative
-        flag_of_anomalies, stamp, estimated_alpha = testing(csv, n_lags, prediction_model,
-                                                               ipromp_model, anomaly_t_by_human = None, c = c, succ=True)
-        if sum(flag_of_anomalies): # not equal to zero, have anomalies
-            FP += 1
-        else:
-            TN += 1
-        list_of_stamps.append(stamp)
-        list_of_estimated_alpha.append(estimated_alpha)
-        
-    print "Ganna to test the unsuccessful trials one by one"
+    print ("Ganna to test the unsuccessful trials one by one, total of %s"%len(unsucc_csvs))
     for csv in unsucc_csvs: # Positive
         anomaly_label_and_signal_time = pickle.load(open(os.path.join(
             os.path.dirname(csv),
@@ -200,15 +198,26 @@ def testing_results(succ_csvs, unsucc_csvs, n_lags, prediction_model, ipromp_mod
        
         flag_of_anomalies, stamp, estimated_alpha = testing(csv, n_lags, prediction_model,
                                                                ipromp_model, anomaly_t_by_human = anomaly_t_by_human, c = c, succ=False)
-
         if sum(flag_of_anomalies): # not equal to zero, have anomalies
             TP += 1
         else:
             FN += 1
-
         list_of_stamps.append(stamp)
         list_of_estimated_alpha.append(estimated_alpha)
-
+        list_of_csv_type.append('unsucc')
+        
+    print ("Ganna to test the successful trials one by one, total of %s"%len(succ_csvs))    
+    for csv in succ_csvs: # Negative
+        flag_of_anomalies, stamp, estimated_alpha = testing(csv, n_lags, prediction_model,
+                                                               ipromp_model, anomaly_t_by_human = None, c = c, succ=True)
+        if sum(flag_of_anomalies): # not equal to zero, have anomalies
+            FP += 1
+        else:
+            TN += 1
+        list_of_stamps.append(stamp)
+        list_of_estimated_alpha.append(estimated_alpha)
+        list_of_csv_type.append('succ')
+        
     # Sensitivity and specificity
     precision = TP/(TP+FP) 
     recall    = TP/(TP+FN)
@@ -218,8 +227,8 @@ def testing_results(succ_csvs, unsucc_csvs, n_lags, prediction_model, ipromp_mod
     fpr = FP / (FP + TN) 
     print("Accuracy : {:0.4f}, Precision : {:0.4f}, Recall : {:0.4f}, F-score : {:0.4f}".format(accuracy, precision, recall, f_score))
     print("TP : {:0.1f}, TN : {:0.1f}, FP : {:0.1f}, FN : {:0.1f}".format( TP, TN, FP, FN))
-    print("TPR : {:0.2f}, FPR : {:0.2f}".format(tpr, fpr))    
-    return tpr, fpr, list_of_stamps, list_of_estimated_alpha
+    print("TPR : {:0.2f}, FPR : {:0.2f}".format(tpr, fpr))
+    return tpr, fpr, list_of_stamps, list_of_estimated_alpha, list_of_csv_type
     
 if __name__=="__main__":
     data_path =  "./anomaly_detection_feature_selection_folder/No.0 filtering scheme"
@@ -302,8 +311,9 @@ if __name__=="__main__":
             history = pickle.load(f)
 
     if GENERATE_FIGURE_IN_PAPER:
-        fig, axarr = plt.subplots(nrows=n_features, ncols=1, sharex=False)
+        fig, axarr = plt.subplots(nrows=n_features, ncols=1, sharex=True, figsize=figure_size)
         plt.subplots_adjust(hspace=0.5)
+        plt.xlabel("Duration (s)")
     group_errors_by_csv = OrderedDict()
     group_stamps_by_csv = OrderedDict()
         
@@ -326,17 +336,19 @@ if __name__=="__main__":
                 _yhat = inv_yhat[:,feature]
                 _y = inv_y[:,feature]
                 # calculate RMSE
-                rmse = sqrt(mean_squared_error(_y,_yhat))
-                print('Test RMSE: %.3f of feature_%s' % (rmse, feature))
+                # rmse = sqrt(mean_squared_error(_y,_yhat))
+                # print('Test RMSE: %.3f of feature_%s' % (rmse, feature))
 
                 # plot the error by actual - predict
                 e = _y - _yhat
-                axarr[feature].plot(e, label='errors' if i==0 else "")            
-                axarr[feature].legend()
-                axarr[feature].set_title('error sequences of feature #%s'%feature)
+                axarr[feature].plot(np.linspace(0, e.shape[-1], e.shape[-1])*0.1, e)
+                axarr[feature].set_ylabel("Error")
+                axarr[feature].set_xlim(left=0)                
+                axarr[feature].set_title('Error sequences of %s'%_labels[feature])
 
     if GENERATE_FIGURE_IN_PAPER:
-        fig.savefig("./figures/errors.png", format = "png", dpi=300)            
+        fig.align_labels()
+        fig.savefig("./figures/errors.png", format = "png", dpi=dpi)            
         print group_errors_by_csv.keys()
         np.save('group_errors_by_csv_skill%s.npy'%skill,group_errors_by_csv)
         np.save('group_stamps_by_csv_skill%s.npy'%skill, group_stamps_by_csv)    
@@ -355,15 +367,17 @@ if __name__=="__main__":
         count, bins, ignored = plt.hist(durations, 30, density=True)
         mu, sigma = np.mean(np.array(durations)), np.std(np.array(durations))
         plt.plot(bins, 1/(sigma * np.sqrt(2 * np.pi)) * np.exp( - (bins - mu)**2 / (2 * sigma**2) ),linewidth=2, color='r')
-        plt.title("Alphas of validating movements")
-        plt.savefig('./figures/durations_skill%s.png'%skill, format="png", dpi=300)
+        plt.title("Normal distribution of alpha values")
+        plt.xlabel("Duration (s)")
+        plt.ylabel("Probability (s)")        
+        plt.savefig('./figures/durations_skill%s.png'%skill, format="png", dpi=dpi)
 
-    list_of_c   = np.linspace(0.5, 5, 10).tolist()
+    list_of_c   = np.linspace(0.5, 5, 10).tolist()[::-1]
     list_of_tpr = []
     list_of_fpr = []
-    for c in list_of_c:
-        print(c)
-        tpr, fpr, list_of_stamps, list_of_estimated_alpha = testing_results(succ_csvs = valid_succ_csvs,
+    for i, c in enumerate(list_of_c):
+        tpr, fpr, list_of_stamps, list_of_estimated_alpha, list_of_csv_type = testing_results(
+                        succ_csvs = valid_succ_csvs,
                         unsucc_csvs = unsucc_csvs,
                         n_lags = n_lags,
                         prediction_model = model,
@@ -371,7 +385,21 @@ if __name__=="__main__":
                         c = c)
         print ("tpr:%s, fpr:%s"%(tpr, fpr))
         list_of_tpr.append(tpr)
-        list_of_fpr.append(fpr)        
+        list_of_fpr.append(fpr)
+        
+        if i == 0: # only for plot
+            plt.figure()
+            plt.title('Estimated alpha values of various movements')
+            for j, csv_type in enumerate(list_of_csv_type):
+                color = "blue" if csv_type == "succ" else "red"
+                plt.scatter(list_of_stamps[j], list_of_estimated_alpha[j], c = color, label=csv_type)
+            handles, labels = plt.gca().get_legend_handles_labels()
+            by_label = OrderedDict(zip(labels, handles))
+            plt.legend(by_label.values(), by_label.keys())
+            plt.xlabel('Duration of movement (s)') 
+            plt.ylabel('Estimated Alpha (s)')   
+            plt.savefig('./figures/stamp_vs_alpha_skill%s.png'%skill, format="png", dpi=dpi)
+        
     np.save('list_of_tpr_skill%s.npy'%skill,list_of_tpr)
     np.save('list_of_fpr_skill%s.npy'%skill,list_of_fpr)
     plt.figure()
@@ -379,10 +407,5 @@ if __name__=="__main__":
     plt.legend()
     plt.xlabel('False Positive Rate') 
     plt.ylabel('True Positive Rate')   
-    plt.savefig('./figures/roc_skill%s.png'%skill, format="png", dpi=300)
+    plt.savefig('./figures/roc_skill%s.png'%skill, format="png", dpi=dpi)
     
-    plt.figure()
-    plt.scatter(list_of_stamps, list_of_estimated_alpha)
-    plt.xlabel('Duration') 
-    plt.ylabel('Estimated Alpha')   
-    plt.savefig('./figures/stamp_alpha_skill%s.png'%skill, format="png", dpi=300)    
