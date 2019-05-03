@@ -27,8 +27,8 @@ plt.rcParams.update({'font.size': 12})
 plt.rcParams["font.family"] = "Time New Roman"
 
 GENERATE_FIGURE_IN_PAPER = False
+GENERATE_FIGURE_IN_TESTING = False
 dpi = 100
-figure_size = (12,8)
 _labels = [r'$n_f$', r'$n_m$', r'$n_l$', r'$n_a$', r'$s_l$', r'$s_r$',]    
 
 def convert_to_X_y(dataset = None, n_lags=None):
@@ -135,8 +135,8 @@ def testing(csv, n_lags, prediction_model, promp_models, anomaly_t_by_human = No
     ipromp_model.set_alpha(estimated_alpha)
     # print('Adding testing points in each promp model...')
 
-    if GENERATE_FIGURE_IN_PAPER:
-        fig, axarr = plt.subplots(nrows=n_features, ncols=1, sharex=True, figsize=figure_size, tight_layout=True)
+    if GENERATE_FIGURE_IN_TESTING:
+        fig, axarr = plt.subplots(nrows=n_features, ncols=1, sharex=True, figsize=(12, 9), tight_layout=True)
         plt.subplots_adjust(hspace=0.5)
         plt.xlabel('Temporal scalar')
         dtype = "succ" if succ else "unsucc"
@@ -160,7 +160,7 @@ def testing(csv, n_lags, prediction_model, promp_models, anomaly_t_by_human = No
             
             flag_of_anomalies.append(isAnomaly(e = e[idx, feature], mean = mean, std = std, c = c))
 
-        if GENERATE_FIGURE_IN_PAPER:
+        if GENERATE_FIGURE_IN_TESTING:
             plt.axes(axarr[feature])
             axarr[feature].set_title('probabilistic model of %s'%_labels[feature])
             axarr[feature].set_xlim(0,1) 
@@ -173,7 +173,7 @@ def testing(csv, n_lags, prediction_model, promp_models, anomaly_t_by_human = No
             # by_label = OrderedDict(zip(labels, handles))
             # plt.legend(by_label.values(), by_label.keys())
 
-    if GENERATE_FIGURE_IN_PAPER:
+    if GENERATE_FIGURE_IN_TESTING:
         fig.align_labels()
         fig.savefig("./figures/%s.png"%title, format = "png", dpi=dpi)    
         
@@ -232,7 +232,7 @@ def testing_results(succ_csvs, unsucc_csvs, n_lags, prediction_model, ipromp_mod
     
 if __name__=="__main__":
     data_path =  "./anomaly_detection_feature_selection_folder/No.0 filtering scheme"
-    skill = 4
+    skill = 3
     
     # load successful dataset for training and validating
     succ_csvs = glob.glob(os.path.join(
@@ -309,11 +309,14 @@ if __name__=="__main__":
         model.load_weights(_weights)
         with open(_history, "rb") as f:
             history = pickle.load(f)
-
+            
+#-----------------------Figure-1----------------        
     if GENERATE_FIGURE_IN_PAPER:
-        fig, axarr = plt.subplots(nrows=n_features, ncols=1, sharex=True, figsize=figure_size)
-        plt.subplots_adjust(hspace=0.5)
-        plt.xlabel("Duration (s)")
+        fig, axarr = plt.subplots(nrows=n_features, ncols=2, sharex=False, figsize=(12,9))
+        axarr[n_features-1, 0].set_xlabel("Duration (s)")
+        axarr[n_features-1, 1].set_xlabel("Temporal scalar")        
+        plt.suptitle("Error sequences with various lengths (left) and its probabilistic model with c=3.0 (right)")
+        plt.subplots_adjust(top=0.91, hspace=0.3,bottom=0.1)
     group_errors_by_csv = OrderedDict()
     group_stamps_by_csv = OrderedDict()
         
@@ -338,17 +341,28 @@ if __name__=="__main__":
                 # calculate RMSE
                 # rmse = sqrt(mean_squared_error(_y,_yhat))
                 # print('Test RMSE: %.3f of feature_%s' % (rmse, feature))
-
                 # plot the error by actual - predict
                 e = _y - _yhat
-                axarr[feature].plot(np.linspace(0, e.shape[-1], e.shape[-1])*0.1, e)
-                axarr[feature].set_ylabel("Error")
-                axarr[feature].set_xlim(left=0)                
-                axarr[feature].set_title('Error sequences of %s'%_labels[feature])
+                axarr[feature,0].plot(np.linspace(0, e.shape[-1], e.shape[-1])*0.1, e)
+                axarr[feature,0].set_ylabel("Error")
+                axarr[feature,0].set_xlim(left=0)                
+                axarr[feature,0].set_title('%s'%_labels[feature])
+                if feature < (n_features - 1): axarr[feature,0].set_xticks([])
 
+    # build probabilistic model for all features
+    ipromp_model, durations = model_errors_with_prob_by_features(group_errors_by_csv = group_errors_by_csv,
+                                                      group_stamps_by_csv = group_stamps_by_csv,
+                                                      )
+    
     if GENERATE_FIGURE_IN_PAPER:
+        for feature, promp in enumerate(ipromp_model.promps):
+            plt.axes(axarr[feature, 1])
+            axarr[feature, 1].set_title('%s'%_labels[feature])            
+            promp.plot_prior(b_regression=False, linewidth_mean=2, b_dataset=True, c = 3.0)
+            axarr[feature,1].set_xlim(0, 1)
+            if feature < (n_features - 1): axarr[feature,1].set_xticks([])            
         fig.align_labels()
-        fig.savefig("./figures/errors.png", format = "png", dpi=dpi)            
+        fig.savefig("./figures/errors_skill_%s.png"%skill, format = "png", dpi=dpi)            
         print group_errors_by_csv.keys()
         np.save('group_errors_by_csv_skill%s.npy'%skill,group_errors_by_csv)
         np.save('group_stamps_by_csv_skill%s.npy'%skill, group_stamps_by_csv)    
@@ -356,21 +370,17 @@ if __name__=="__main__":
         plot_errors_for_illustrating_in_diff_and_same_lengths.run(group_errors_by_csv = group_errors_by_csv,
                                                               group_stamps_by_csv = group_stamps_by_csv,
                                                               c = 3.0)
-    
-    # build probabilistic model for all features
-    ipromp_model, durations = model_errors_with_prob_by_features(group_errors_by_csv = group_errors_by_csv,
-                                                      group_stamps_by_csv = group_stamps_by_csv,
-                                                      )
-    
-    if GENERATE_FIGURE_IN_PAPER:
-        plt.figure()
+#-----------------------Figure-2----------------        
+        # plot durations distribution
+        fig, axarr = plt.subplots(nrows=1, ncols=2, sharex=False, figsize=(14,6))
+        plt.subplots_adjust(top=0.91, hspace=0.8,bottom=0.1)
+        plt.axes(axarr[0])        
         count, bins, ignored = plt.hist(durations, 30, density=True)
         mu, sigma = np.mean(np.array(durations)), np.std(np.array(durations))
         plt.plot(bins, 1/(sigma * np.sqrt(2 * np.pi)) * np.exp( - (bins - mu)**2 / (2 * sigma**2) ),linewidth=2, color='r')
-        plt.title("Normal distribution of alpha values")
+        plt.title("Normal distribution of validation movements")
         plt.xlabel("Duration (s)")
-        plt.ylabel("Probability (s)")        
-        plt.savefig('./figures/durations_skill%s.png'%skill, format="png", dpi=dpi)
+        plt.ylabel("Probability")        
 
     list_of_c   = np.linspace(0.5, 5, 10).tolist()[::-1]
     list_of_tpr = []
@@ -388,18 +398,20 @@ if __name__=="__main__":
         list_of_fpr.append(fpr)
         
         if i == 0: # only for plot
-            plt.figure()
-            plt.title('Estimated alpha values of various movements')
+            plt.axes(axarr[1])        
+            plt.title('Estimated alpha values of testing movements')
             for j, csv_type in enumerate(list_of_csv_type):
                 color = "blue" if csv_type == "succ" else "red"
                 plt.scatter(list_of_stamps[j], list_of_estimated_alpha[j], c = color, label=csv_type)
             handles, labels = plt.gca().get_legend_handles_labels()
             by_label = OrderedDict(zip(labels, handles))
             plt.legend(by_label.values(), by_label.keys())
-            plt.xlabel('Duration of movement (s)') 
+            plt.xlabel('Duration (s)') 
             plt.ylabel('Estimated Alpha (s)')   
             plt.savefig('./figures/stamp_vs_alpha_skill%s.png'%skill, format="png", dpi=dpi)
-        
+
+            sys.exit()
+            
     np.save('list_of_tpr_skill%s.npy'%skill,list_of_tpr)
     np.save('list_of_fpr_skill%s.npy'%skill,list_of_fpr)
     plt.figure()
