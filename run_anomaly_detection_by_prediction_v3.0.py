@@ -396,21 +396,21 @@ if __name__=="__main__":
         print ("tpr:%s, fpr:%s"%(tpr, fpr))
         list_of_tpr.append(tpr)
         list_of_fpr.append(fpr)
-        
-        if i == 0: # only for plot
-            plt.axes(axarr[1])        
-            plt.title('Estimated alpha values of testing movements')
-            for j, csv_type in enumerate(list_of_csv_type):
-                color = "blue" if csv_type == "succ" else "red"
-                plt.scatter(list_of_stamps[j], list_of_estimated_alpha[j], c = color, label=csv_type)
-            handles, labels = plt.gca().get_legend_handles_labels()
-            by_label = OrderedDict(zip(labels, handles))
-            plt.legend(by_label.values(), by_label.keys())
-            plt.xlabel('Duration (s)') 
-            plt.ylabel('Estimated Alpha (s)')   
-            plt.savefig('./figures/stamp_vs_alpha_skill%s.png'%skill, format="png", dpi=dpi)
+        if GENERATE_FIGURE_IN_PAPER:        
+            if i == 0: # only for plot
+                plt.axes(axarr[1])        
+                plt.title('Estimated alpha values of testing movements')
+                for j, csv_type in enumerate(list_of_csv_type):
+                    color = "blue" if csv_type == "succ" else "red"
+                    plt.scatter(list_of_stamps[j], list_of_estimated_alpha[j], c = color, label=csv_type)
+                handles, labels = plt.gca().get_legend_handles_labels()
+                by_label = OrderedDict(zip(labels, handles))
+                plt.legend(by_label.values(), by_label.keys())
+                plt.xlabel('Duration (s)') 
+                plt.ylabel('Estimated Alpha (s)')   
+                plt.savefig('./figures/stamp_vs_alpha_skill%s.png'%skill, format="png", dpi=dpi)
 
-            sys.exit()
+                sys.exit()
             
     np.save('list_of_tpr_skill%s.npy'%skill,list_of_tpr)
     np.save('list_of_fpr_skill%s.npy'%skill,list_of_fpr)
