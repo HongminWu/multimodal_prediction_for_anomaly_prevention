@@ -27,7 +27,7 @@ plt.rcParams.update({'font.size': 12})
 plt.rcParams["font.family"] = "Time New Roman"
 
 GENERATE_FIGURE_IN_PAPER = False
-GENERATE_FIGURE_IN_TESTING = False
+GENERATE_FIGURE_IN_TESTING = True
 dpi = 100
 _labels = [r'$n_f$', r'$n_m$', r'$n_l$', r'$n_a$', r'$s_l$', r'$s_r$',]    
 
@@ -105,7 +105,7 @@ def isAnomaly(e = None, mean =  None, std = None, c = None):
         return False
 
 
-def testing(csv, n_lags, prediction_model, promp_models, anomaly_t_by_human = None, c = None, succ = None):
+def testing(csv, n_lags, prediction_model, promp_models, anomaly_t_by_human = None, c = None, skill=None):
     dataset = read_csv(csv, header=0, index_col=0)
     x, y, scaler, n_features = convert_to_X_y(dataset = dataset, n_lags = n_lags)
     input_shape = (x.shape[1], x.shape[2])
@@ -121,6 +121,9 @@ def testing(csv, n_lags, prediction_model, promp_models, anomaly_t_by_human = No
 
     if anomaly_t_by_human is not None:
         anomaly_time = anomaly_t_by_human -  dataset.index[0]
+        dtype = "unsucc"        
+    else:
+        dtype = "succ"
     
     e = inv_y - inv_yhat
 
@@ -136,12 +139,9 @@ def testing(csv, n_lags, prediction_model, promp_models, anomaly_t_by_human = No
     # print('Adding testing points in each promp model...')
 
     if GENERATE_FIGURE_IN_TESTING:
-        fig, axarr = plt.subplots(nrows=n_features, ncols=1, sharex=True, figsize=(12, 9), tight_layout=True)
-        plt.subplots_adjust(hspace=0.5)
+        fig, axarr = plt.subplots(nrows=n_features, ncols=1, sharex=False, figsize=(6, 7), tight_layout=True)
         plt.xlabel('Temporal scalar')
-        dtype = "succ" if succ else "unsucc"
-        title = "%s: %s, c=%s"%(dtype, os.path.basename(csv)[-25:], c)
-        plt.suptitle(title)
+        fileName = "%s: %s, c=%s"%(dtype, os.path.basename(csv)[-25:], c)
 
     flag_of_anomalies = []
     for feature, promp in enumerate(ipromp_model.promps):
@@ -161,25 +161,26 @@ def testing(csv, n_lags, prediction_model, promp_models, anomaly_t_by_human = No
             flag_of_anomalies.append(isAnomaly(e = e[idx, feature], mean = mean, std = std, c = c))
 
         if GENERATE_FIGURE_IN_TESTING:
-            plt.axes(axarr[feature])
             axarr[feature].set_title('probabilistic model of %s'%_labels[feature])
             axarr[feature].set_xlim(0,1) 
-            axarr[feature].set_ylabel('Error')           
-            # if anomaly_t_by_human is not None:
-            #     axarr[feature].axvline(anomaly_time / estimated_alpha, c='black', ls = '--')
+            axarr[feature].set_ylabel('Error')
+            if feature < (len(ipromp_model.promps) -1 ): axarr[feature].set_xticks([])            
+            plt.axes(axarr[feature])
             promp.plot_prior(b_regression=False, linewidth_mean=2, b_dataset=True, c = c)
             promp.plot_uViapoints()
+            # if anomaly_t_by_human is not None:
+            #     axarr[feature].axvline(anomaly_time / estimated_alpha, c='black', ls = '--')
             # handles, labels = plt.gca().get_legend_handles_labels()
             # by_label = OrderedDict(zip(labels, handles))
             # plt.legend(by_label.values(), by_label.keys())
 
     if GENERATE_FIGURE_IN_TESTING:
         fig.align_labels()
-        fig.savefig("./figures/%s.png"%title, format = "png", dpi=dpi)    
+        fig.savefig("./figures/skill%s_%s.png"%(skill, fileName), format = "png", dpi=dpi)    
         
     return flag_of_anomalies, stamp[-1], estimated_alpha
 
-def testing_results(succ_csvs, unsucc_csvs, n_lags, prediction_model, ipromp_model, c=None):
+def testing_results(succ_csvs, unsucc_csvs, n_lags, prediction_model, ipromp_model, c=None, skill = None):
 
     list_of_stamps = []
     list_of_estimated_alpha = []    
@@ -197,7 +198,8 @@ def testing_results(succ_csvs, unsucc_csvs, n_lags, prediction_model, ipromp_mod
         anomaly_t_by_human = anomaly_label_and_signal_time[1].to_sec()
        
         flag_of_anomalies, stamp, estimated_alpha = testing(csv, n_lags, prediction_model,
-                                                               ipromp_model, anomaly_t_by_human = anomaly_t_by_human, c = c, succ=False)
+                                                               ipromp_model, anomaly_t_by_human = anomaly_t_by_human,
+                                                               c = c, skill=skill)
         if sum(flag_of_anomalies): # not equal to zero, have anomalies
             TP += 1
         else:
@@ -209,7 +211,8 @@ def testing_results(succ_csvs, unsucc_csvs, n_lags, prediction_model, ipromp_mod
     print ("Ganna to test the successful trials one by one, total of %s"%len(succ_csvs))    
     for csv in succ_csvs: # Negative
         flag_of_anomalies, stamp, estimated_alpha = testing(csv, n_lags, prediction_model,
-                                                               ipromp_model, anomaly_t_by_human = None, c = c, succ=True)
+                                                               ipromp_model, anomaly_t_by_human = None,
+                                                               c = c, skill=skill)
         if sum(flag_of_anomalies): # not equal to zero, have anomalies
             FP += 1
         else:
@@ -232,7 +235,7 @@ def testing_results(succ_csvs, unsucc_csvs, n_lags, prediction_model, ipromp_mod
     
 if __name__=="__main__":
     data_path =  "./anomaly_detection_feature_selection_folder/No.0 filtering scheme"
-    skill = 3
+    skill = 4
     
     # load successful dataset for training and validating
     succ_csvs = glob.glob(os.path.join(
@@ -382,7 +385,7 @@ if __name__=="__main__":
         plt.xlabel("Duration (s)")
         plt.ylabel("Probability")        
 
-    list_of_c   = np.linspace(0.5, 5, 10).tolist()[::-1]
+    list_of_c   = np.linspace(0.5, 5, 10).tolist()[::-1] # [3]: explaining the results
     list_of_tpr = []
     list_of_fpr = []
     for i, c in enumerate(list_of_c):
@@ -392,7 +395,8 @@ if __name__=="__main__":
                         n_lags = n_lags,
                         prediction_model = model,
                         ipromp_model = ipromp_model,
-                        c = c)
+                        c = c,
+                        skill = skill)
         print ("tpr:%s, fpr:%s"%(tpr, fpr))
         list_of_tpr.append(tpr)
         list_of_fpr.append(fpr)
@@ -410,8 +414,6 @@ if __name__=="__main__":
                 plt.ylabel('Estimated Alpha (s)')   
                 plt.savefig('./figures/stamp_vs_alpha_skill%s.png'%skill, format="png", dpi=dpi)
 
-                sys.exit()
-            
     np.save('list_of_tpr_skill%s.npy'%skill,list_of_tpr)
     np.save('list_of_fpr_skill%s.npy'%skill,list_of_fpr)
     plt.figure()
