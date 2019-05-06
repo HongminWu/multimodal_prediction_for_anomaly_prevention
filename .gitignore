@@ -3,6 +3,5 @@
 *.npy
 *.eps
 *.py~
-models*
 figures*
 zzzz*
