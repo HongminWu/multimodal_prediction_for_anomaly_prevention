@@ -27,7 +27,7 @@ plt.rcParams.update({'font.size': 12})
 plt.rcParams["font.family"] = "Time New Roman"
 
 GENERATE_FIGURE_IN_PAPER = False
-GENERATE_FIGURE_IN_TESTING = True
+GENERATE_FIGURE_IN_TESTING = False
 dpi = 100
 _labels = [r'$n_f$', r'$n_m$', r'$n_l$', r'$n_a$', r'$s_l$', r'$s_r$',]    
 
@@ -223,11 +223,11 @@ def testing_results(succ_csvs, unsucc_csvs, n_lags, prediction_model, ipromp_mod
         
     # Sensitivity and specificity
     precision = TP/(TP+FP) 
-    recall    = TP/(TP+FN)
+    recall    = TP/(TP+FN) # positive (abnormal) identification
     f_score   = 2*TP/(2*TP+FP+FN)
     accuracy  = (TP+TN)/(TP+TN+FP+FN)
-    tpr = recall
-    fpr = FP / (FP + TN) 
+    tpr = recall # positive (abnormal) identification
+    fpr = FP / (FP + TN) # negative (nominal) identification
     print("Accuracy : {:0.4f}, Precision : {:0.4f}, Recall : {:0.4f}, F-score : {:0.4f}".format(accuracy, precision, recall, f_score))
     print("TP : {:0.1f}, TN : {:0.1f}, FP : {:0.1f}, FN : {:0.1f}".format( TP, TN, FP, FN))
     print("TPR : {:0.2f}, FPR : {:0.2f}".format(tpr, fpr))
@@ -235,7 +235,7 @@ def testing_results(succ_csvs, unsucc_csvs, n_lags, prediction_model, ipromp_mod
     
 if __name__=="__main__":
     data_path =  "./anomaly_detection_feature_selection_folder/No.0 filtering scheme"
-    skill = 4
+    skill = 3
     
     # load successful dataset for training and validating
     succ_csvs = glob.glob(os.path.join(
