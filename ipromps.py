@@ -260,7 +260,7 @@ class ProMP(object):
         plot the n-dimension updated distribution, valid from NDProMP or IProMP
         """
         if self.meanW_nUpdated is None:
-            print "there is no updated distribution from NDProMP or IProMP"
+            print ("there is no updated distribution from NDProMP or IProMP")
             return
         x = self.x
         mean0 = np.dot(self.Phi.T, self.meanW_nUpdated)

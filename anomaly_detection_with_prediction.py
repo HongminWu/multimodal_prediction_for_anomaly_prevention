@@ -50,11 +50,11 @@ def detect_anomalies_with_prediction_actuals(df, window = 20):
     df['meanval'] = df['error'].rolling(window=window).mean()
     df['deviation'] = df['error'].rolling(window=window).std()
 
-    print "@Hongmin Wu: fill the NaN values as the first point"
+    print ("@Hongmin Wu: fill the NaN values as the first point")
     df['meanval'].fillna(df['meanval'][window-1], inplace=True) 
     df['deviation'].fillna(df['deviation'][window-1], inplace=True)   
     
-    print "finished caculating the error, mean and std"
+    print ("finished caculating the error, mean and std")
     print 
     
     df['-3s'] = df['meanval'] - (2 * df['deviation'])
@@ -70,7 +70,7 @@ def detect_anomalies_with_prediction_actuals(df, window = 20):
     df['impact'] = [(lambda x: np.where(cut_sort == df['error'][x])[1][0])(x) for x in
                                range(len(df['error']))]
 
-    print "fininshed definied the impacts of errors"
+    print ("fininshed definied the impacts of errors")
     
     severity = {0: 3,
                 1: 2,

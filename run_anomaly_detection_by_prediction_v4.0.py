@@ -13,7 +13,7 @@ from keras.layers import Dense
 from keras.layers import LSTM
 import numpy as np
 import pandas as pd
-import cPickle as pickle
+import pickle
 import ipdb, os, glob, sys
 from collections import OrderedDict
 from sklearn import preprocessing
@@ -139,7 +139,7 @@ def testing(csv, n_lags, prediction_model, promp_models, anomaly_t_by_human = No
     flag_of_anomalies = []
     list_of_prob = []
     list_of_t = []
-    print e
+    print (e)
     for idx in range(len(stamp)):
         ipromp_model.clear_viapoints()
         t = stamp[idx] / estimated_alpha
@@ -153,7 +153,7 @@ def testing(csv, n_lags, prediction_model, promp_models, anomaly_t_by_human = No
         flag_of_anomalies.append(status)
         list_of_t.append(t)
         list_of_prob.append(prob)
-    print list_of_prob    
+    print (list_of_prob)
     ax.plot(list_of_prob)
     # if anomaly_t_by_human is not None:
     #     ax.axvline(anomaly_time / estimated_alpha, c='black', ls = '--')
@@ -164,7 +164,7 @@ def testing_results(succ_csvs, unsucc_csvs, n_lags, prediction_model, ipromp_mod
 
     TP, TN, FP, FN = 0.0, 0.0, 0.0, 0.0
     
-    print "Ganna to test the unsuccessful trials one by one"
+    print ("Ganna to test the unsuccessful trials one by one")
     for csv in unsucc_csvs: # Positive
         anomaly_label_and_signal_time = pickle.load(open(os.path.join(
             os.path.dirname(csv),
@@ -180,7 +180,7 @@ def testing_results(succ_csvs, unsucc_csvs, n_lags, prediction_model, ipromp_mod
         else:
             FN += 1
 
-    print "Ganna to test the successful trials one by one"
+    print ("Ganna to test the successful trials one by one")
     for csv in succ_csvs: # Negative
         flag_of_anomalies = testing(csv, n_lags, prediction_model, ipromp_model, anomaly_t_by_human = None, c = c, succ=True)
         if sum(flag_of_anomalies): # not equal to zero, have anomalies
@@ -198,7 +198,7 @@ def testing_results(succ_csvs, unsucc_csvs, n_lags, prediction_model, ipromp_mod
     print("TP : {:0.1f}, TN : {:0.1f}, FP : {:0.1f}, FN : {:0.1f}".format( TP, TN, FP, FN))    
     
 if __name__=="__main__":
-    data_path =  "/home/birl/baxter_ws/src/SPAI/smach_based_introspection_framework/temp_folder_prediction_for_error_prevention_wrench_norm/anomaly_detection_feature_selection_folder/No.0 filtering scheme"
+    data_path =  "/home/birl/baxter_ws/src/SPAI/smach_based_introspection_framework/introspection_data_folder.AC_offline_test/temp_folder_prediction_for_error_prevention_wrench_norm/anomaly_detection_feature_selection_folder/No.0 filtering scheme"
     skill = 4
     
     # load successful dataset for training and validating
@@ -247,7 +247,7 @@ if __name__=="__main__":
             valid_y = np.vstack((valid_y, y))            
 
     input_shape = (train_X.shape[1], train_X.shape[2])
-    model_name = "lstm_dropout" #"lstm_dropout" "lstm" 
+    model_name = "lstm" #"lstm_dropout" "lstm" 
     model = get_model_via_name(model_name= model_name,
                                input_shape = input_shape,
                                output_shape = n_features)
@@ -309,7 +309,7 @@ if __name__=="__main__":
         group_errors_by_csv[fileID] = inv_y - inv_yhat
         group_stamps_by_csv[fileID] = valid_dataset.index - valid_dataset.index[0]
     #fig.savefig("./figures/errors.png", format = "png", dpi=300)            
-    print group_errors_by_csv.keys()
+    print (group_errors_by_csv.keys())
 
     c = 3.0
     if GENERATE_FIGURE_IN_PAPER:
